@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>誠馨二館每日出席名單</title>
+    <style>
+        :root {
+            --ride-bg: #f0fff4;        /* 要出席：淡淡綠 */
+            --half-bg: #edf2f7;        /* 半日：淡淡藍灰 */
+            --no-ride-bg: #fff5f5;     /* 不出席/請假：淡淡紅 */
+            --primary: #1a73e8;
+            --half-text: #2b6cb0;
+        }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f9; margin: 0; padding: 10px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: var(--primary); color: white; padding: 20px; text-align: center; }
+        .date-section { background: white; padding: 15px; text-align: center; border-bottom: 1px solid #eee; }
+        .summary-section { background: #e8f0fe; color: #1967d2; padding: 10px; text-align: center; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid #d2e3fc; letter-spacing: 1px; }
+        table { width: 100%; border-collapse: collapse; }
+        tr { border-bottom: 1px solid #f1f5f9; transition: 0.2s; }
+        td { padding: 15px 12px; vertical-align: middle; }
+        .row-ride { background-color: var(--ride-bg); }
+        .row-ride .name-text { color: #2d3748; }
+        .row-half { background-color: var(--half-bg) !important; }
+        .row-half .name-text { color: var(--half-text) !important; font-weight: 800; }
+        .name-text { font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; }
+        .row-no-ride { background-color: var(--no-ride-bg) !important; }
+        .row-no-ride .name-text { text-decoration: line-through #e53e3e 3px !important; color: #a0aec0 !important; }
+        .btn { border-radius: 8px; border: 1px solid #ccc; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 0.95rem; }
+        .btn-ride { background: #9ae6b4; color: #22543d; border-color: #68d391; }
+        .btn-half { background: #bee3f8; color: #2b6cb0; border-color: #90cdf4; }
+        .btn-no-ride { background: #feb2b2; color: #9b2c2c; border-color: #fc8181; }
+        .btn-arrived { background: var(--primary); color: white; border: none; }
+        input[type="date"] { padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 1.1rem; outline: none; font-weight: bold; }
+        .info { font-size: 0.85rem; opacity: 0.9; margin-top: 5px; letter-spacing: 1px; }
+        .hint-box { background: #fffbeb; color: #b45309; padding: 8px; text-align: center; font-size: 0.85rem; border-bottom: 1px solid #fef3c7; }
+        .loading { text-align: center; padding: 30px; color: #666; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2 style="margin:0; font-size: 1.5rem;">📋 誠馨二館每日出席名單</h2>
+        <div class="info">行政提前排假 ‧ 雲端即時同步</div>
+    </div>
+    <div class="hint-box">💡 提示：所有工作人員手機皆會同步看到最新的請假紅線！</div>
+    <div class="date-section">
+        📅 日期：<input type="date" id="targetDate" onchange="loadSchedule()">
+        <span id="dayName" style="font-weight:bold; margin-left:10px; color:var(--primary); font-size: 1.1rem;"></span>
+    </div>
+    <div class="summary-section" id="summaryBox">
+        👥 預計出席總人數：<span id="totalCount">0</span> 人
+    </div>
+    <table>
+        <tbody id="listBody">
+            <tr><td class="loading">連線到雲端資料庫中...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // 🔗 這裡已完美換上您剛剛提供的新部署網址！
+    const apiKey = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec";
+
+    // 誠馨二館長輩固定排班數據
+    const baseData = {
+        1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
+        2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
+        3: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "鄭淞壽(全日)"],
+        4: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)", "謝陳麗珠(全日)"],
+        5: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "謝陳麗珠(全日)"]
+    };
+
+    const dateInput = document.getElementById('targetDate');
+    dateInput.valueAsDate = new Date();
+    let cloudLeaveList = [];
+
+    function loadSchedule() {
+        const tbody = document.getElementById('listBody');
+        if(!tbody.innerHTML || tbody.innerHTML.includes("連線到雲端")) {
+            tbody.innerHTML = '<tr><td class="loading">🔄 正在同步雲端資料...</td></tr>';
+        }
+        
+        fetch(`${apiKey}?action=read`)
+        .then(res => res.json())
+        .then(data => {
+            cloudLeaveList = data;
+            renderDOM();
+        })
+        .catch(err => {
+            tbody.innerHTML = '<tr><td class="loading" style="color:red;">❌ 連線失敗，請確認您的 GAS 有完成重新部署且權限設定為「所有人」</td></tr>';
+        });
+    }
+
+    function renderDOM() {
+        const selectedDate = dateInput.value; 
+        const d = new Date(selectedDate);
+        const day = d.getDay();
+        const weeks = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+        document.getElementById('dayName').innerText = weeks[day];
+        const tbody = document.getElementById('listBody');
+        tbody.innerHTML = "";
+
+        if(day === 0 || day === 6) {
+            tbody.innerHTML = "<tr><td style='text-align:center;padding:50px;color:#94a3b8;font-weight:bold;'>😴 本日為週末，無出席排程</td></tr>";
+            document.getElementById('summaryBox').style.display = "none";
+            return;
+        }
+        document.getElementById('summaryBox').style.display = "block";
+
+        const dailyNames = baseData[day] || [];
+        
+        const todaysLeave = cloudLeaveList.filter(item => {
+            if(!item.date) return false;
+            const cleanCloudDate = item.date.split('T')[0];
+            return cleanCloudDate === selectedDate;
+        }).map(item => item.name);
+        
+        let actualCount = 0;
+
+        dailyNames.forEach(name => {
+            const isLeave = todaysLeave.includes(name);
+            const isHalfDay = name.includes("(半日)");
+            const tr = document.createElement('tr');
+            tr.id = `row-${name}`;
+            
+            if (isLeave) {
+                tr.className = "row-no-ride";
+            } else {
+                tr.className = isHalfDay ? "row-half" : "row-ride";
+                actualCount++;
+            }
+            
+            let btnClass = "btn-ride";
+            if (isLeave) btnClass = "btn-no-ride";
+            else if (isHalfDay) btnClass = "btn-half";
+
+            tr.innerHTML = `
+                <td style="width:50%;" class="name-text">${name}</td>
+                <td style="width:25%;">
+                    <button class="btn ${btnClass}" onclick="toggleStatus(this, '${name}')" id="btn-${name}">
+                        ${isLeave ? '不出席' : '要出席'}
+                    </button>
+                </td>
+                <td style="width:25%; text-align:right;">
+                    <button class="btn btn-arrived" style="${isLeave ? 'visibility:hidden' : ''}" onclick="done(this)">簽到</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        document.getElementById('totalCount').innerText = actualCount;
+    }
+
+    function toggleStatus(btn, name) {
+        const selectedDate = dateInput.value;
+        const tr = document.getElementById(`row-${name}`);
+        const originalText = btn.innerText.trim();
+        
+        btn.disabled = true;
+        btn.innerText = "同步中...";
+
+        const action = (originalText === "要出席") ? "add" : "remove";
+
+        fetch(`${apiKey}?action=${action}&date=${selectedDate}&name=${encodeURIComponent(name)}`)
+        .then(res => res.text())
+        .then(() => {
+            btn.disabled = false;
+            if (action === "add") {
+                btn.className = "btn btn-no-ride";
+                btn.innerText = "不出席";
+                tr.className = "row-no-ride";
+                tr.querySelector('.btn-arrived').style.visibility = "hidden";
+                
+                cloudLeaveList = cloudLeaveList.filter(item => !((item.date ? item.date.split('T')[0] : '') === selectedDate && item.name === name));
+                cloudLeaveList.push({date: selectedDate, name: name});
+            } else {
+                const isHalfDay = name.includes("(半日)");
+                btn.className = isHalfDay ? "btn btn-half" : "btn btn-ride";
+                btn.innerText = "要出席";
+                tr.className = isHalfDay ? "row-half" : "row-ride";
+                tr.querySelector('.btn-arrived').style.visibility = "visible";
+                
+                cloudLeaveList = cloudLeaveList.filter(item => !((item.date ? item.date.split('T')[0] : '') === selectedDate && item.name === name));
+            }
+            recalculateCount();
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            alert("同步失敗，請檢查網路或 GAS 部署設定");
+        });
+    }
+
+    function recalculateCount() {
+        const totalCountSpan = document.getElementById('totalCount');
+        const activeRows = document.querySelectorAll('#listBody tr:not(.row-no-ride)');
+        totalCountSpan.innerText = activeRows.length;
+    }
+
+    function done(btn) {
+        btn.parentElement.innerHTML = '<b style="color:#38a169; font-size:1.1rem;">✅ 已簽到</b>';
+    }
+
+    loadSchedule();
+</script>
+</body>
+</html>
