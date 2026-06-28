@@ -16,9 +16,14 @@
         .btn-ride:hover { background-color: #27ae60; color: white; }
         .btn-noride { background-color: #e74c3c; color: white; border: none; text-decoration: line-through; }
         .btn-noride:hover { background-color: #c0392b; color: white; }
-        .passenger-name { font-size: 1.15rem; font-weight: 600; color: #2c3e50; transition: all 0.2s; }
+        .passenger-name { font-size: 1.15rem; font-weight: 600; color: #2c3e50; transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
         .text-strike { text-decoration: line-through; color: #95a5a6 !important; }
+        .text-strike .badge { background-color: #bdc3c7 !important; color: white !important; text-decoration: line-through; }
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: #1565c0; }
+        /* 半日專屬的漂亮橘色標籤 */
+        .badge-half { background-color: #ffeaa7; color: #d35400; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+        /* 全日專屬的低調灰色標籤 */
+        .badge-full { background-color: #e1f5fe; color: #0288d1; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -61,8 +66,7 @@
 </div>
 
 <script>
-// ==================== 🛠️ 核心修正：容錯讀取邏輯 ====================
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
@@ -122,20 +126,32 @@ function renderList() {
         return;
     }
     
-    passengers.forEach(name => {
-        const isAbsent = todayAbsences.includes(name);
+    passengers.forEach(fullName => {
+        const isAbsent = todayAbsences.includes(fullName);
         if (isAbsent) currentAttendanceCount--;
+        
+        // 拆分名字與標籤
+        let displayName = fullName;
+        let badgeHtml = "";
+        
+        if (fullName.includes("(半日)")) {
+            displayName = fullName.replace("(半日)", "");
+            badgeHtml = `<span class="badge badge-half">半日</span>`;
+        } else if (fullName.includes("(全日)")) {
+            displayName = fullName.replace("(全日)", "");
+            badgeHtml = `<span class="badge badge-full">全日</span>`;
+        }
         
         const row = document.createElement('div');
         row.className = "passenger-row d-flex justify-content-between align-items-center";
         
         row.innerHTML = `
-            <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${name}</span>
+            <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${displayName} ${badgeHtml}</span>
             <button class="btn status-btn ${isAbsent ? 'btn-noride' : 'btn-ride'}">${isAbsent ? '不出席' : '要出席'}</button>
         `;
         
         const btn = row.querySelector('button');
-        btn.onclick = () => toggleStatus(selectedDateStr, name, isAbsent);
+        btn.onclick = () => toggleStatus(selectedDateStr, fullName, isAbsent);
         passengerContainer.appendChild(row);
     });
     
