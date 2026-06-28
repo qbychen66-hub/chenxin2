@@ -26,7 +26,7 @@
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay">處理中，請稍候...</div>
+<div class="loading-overlay" id="loadingOverlay">雲端即時同步中...</div>
 
 <div class="container my-4" style="max-width: 600px;">
     <div class="card main-card">
@@ -57,15 +57,14 @@
                 <span class="fw-bold fs-5 text-secondary">預計出席總人數：<span id="totalCount" class="text-dark fs-4">0</span> 人</span>
             </div>
 
-            <div id="passengerContainer" style="border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
-                </div>
+            <div id="passengerContainer" style="border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02);"></div>
         </div>
     </div>
 </div>
 
 <script>
-// 已直接幫您置入剛才測試成功、專屬您的後台大腦連線網址，完全不需要手動修改
-const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
+// ⭐ 請記得把雙引號裡面換成您剛剛「第5步」複製的那串最新的 GAS 網址！
+const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
@@ -87,27 +86,21 @@ datePicker.value = today.toISOString().split('T')[0];
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
-// 🛠️ 終極修復：改用傳統的 JSONP 腳本載入模式，100% 繞過瀏覽器的安全性跨網域攔截
-function fetchAbsenceData() {
+// 嚴格數據撈取：開網頁或切換日期時，一定去 Google 試算表拿最新請假名單
+async function fetchAbsenceData() {
     showLoading(true);
-    const script = document.createElement('script');
-    // 在網址後方帶上全域回傳名稱，確保安全過關
-    script.src = `${API_URL}?action=read&callback=jsonpCallback&_=` + new Date().getTime();
-    script.onerror = () => {
+    try {
+        const res = await fetch(`${API_URL}?action=read`);
+        if (res.ok) {
+            absenceList = await res.json();
+        }
+    } catch (e) {
+        console.error("讀取雲端失敗", e);
+    } finally {
         showLoading(false);
         renderList();
-    };
-    document.body.appendChild(script);
+    }
 }
-
-// 接收 Google 回傳資料的專用緩衝區
-window.jsonpCallback = function(data) {
-    absenceList = data;
-    showLoading(false);
-    renderList();
-    const oldScript = document.querySelector('script[src*="callback=jsonpCallback"]');
-    if (oldScript) oldScript.remove();
-};
 
 function renderList() {
     const selectedDateStr = datePicker.value;
@@ -164,31 +157,26 @@ function renderList() {
     totalCountEl.textContent = currentAttendanceCount;
 }
 
-function toggleStatus(date, name, isCurrentlyAbsent) {
+async function toggleStatus(date, name, isCurrentlyAbsent) {
     showLoading(true);
     const action = isCurrentlyAbsent ? "remove" : "add";
-    
-    // 前端搶先變色與畫紅線（防呆流暢體驗）
-    if (isCurrentlyAbsent) {
-        absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
-    } else {
-        if(!Array.isArray(absenceList)) absenceList = [];
-        absenceList.push({ date: date, name: name });
-    }
-    renderList();
-
-    // 🛠️ 終極修復：寫入時同樣改用傳統影像信標發送，免去後台對應等待，直接打通綠色通道
-    const img = new Image();
-    img.src = `${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}&_=` + new Date().getTime();
-    
-    // 點擊後不論後台安全審查回報如何，0.5秒後直接解開載入動畫，確保操作流暢
-    setTimeout(() => {
+    try {
+        // 標準雙向同步：寫入成功後，立刻重新跟 Google 試算表對齊資料，確保全體同仁手機同步
+        const res = await fetch(`${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}`);
+        if (res.ok) {
+            await fetchAbsenceData(); 
+        } else {
+            alert("同步失敗，請再試一次");
+            showLoading(false);
+        }
+    } catch (e) {
+        alert("網路連線逾時，請檢查連線");
         showLoading(false);
-    }, 500);
+    }
 }
 
-datePicker.onchange = renderList;
-fetchAbsenceData();
+datePicker.onchange = fetchAbsenceData; // 切換日期時重新抓雲端
+fetchAbsenceData(); // 網頁打開時自動抓雲端
 </script>
 </body>
-</html> 
+</html>
