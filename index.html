@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>誠馨二館出席名單</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; font-family: "Helvetica Neue", Arial, "Noto Sans TC", sans-serif; }
+        .main-card { border-radius: 16px; border: none; box-shadow: 0 8px 24px rgba(0,0,0,0.05); overflow: hidden; }
+        .card-header-bg { background: linear-gradient(135deg, #1e88e5, #1565c0); color: white; padding: 24px; text-align: center; }
+        .passenger-row { padding: 16px; border-bottom: 1px solid #edf2f7; transition: all 0.2s; background: white; }
+        .passenger-row:last-child { border-bottom: none; }
+        .status-btn { width: 100px; font-weight: bold; border-radius: 8px; transition: all 0.2s; }
+        .btn-ride { background-color: #2ecc71; color: white; border: none; }
+        .btn-ride:hover { background-color: #27ae60; color: white; }
+        .btn-noride { background-color: #e74c3c; color: white; border: none; text-decoration: line-through; }
+        .btn-noride:hover { background-color: #c0392b; color: white; }
+        .passenger-name { font-size: 1.15rem; font-weight: 600; color: #2c3e50; transition: all 0.2s; }
+        .text-strike { text-decoration: line-through; color: #95a5a6 !important; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: #1565c0; }
+    </style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">處理中，請稍候...</div>
+
+<div class="container my-4" style="max-width: 600px;">
+    <div class="card main-card">
+        <div class="card-header-bg">
+            <h2 class="mb-2">📋 誠馨二館出席名單</h2>
+            <p class="mb-0 opacity-75">行政提前排假 ・ 雲端即時同步</p>
+        </div>
+        <div class="card-body p-4">
+            <div class="alert alert-warning d-flex align-items-center mb-4" role="alert" style="border-radius: 10px;">
+                <span class="fs-4 me-2">💡</span>
+                <div>提示：所有工作人員手機皆會同步！</div>
+            </div>
+
+            <div class="row g-3 align-items-center mb-4 pb-3 border-bottom">
+                <div class="col-auto">
+                    <label for="datePicker" class="col-form-label fw-bold fs-5">📅 日期：</label>
+                </div>
+                <div class="col">
+                    <input type="date" id="datePicker" class="form-control form-control-lg fw-bold" style="border-radius: 10px;">
+                </div>
+                <div class="col-auto">
+                    <span id="weekDayLabel" class="fw-bold fs-5 text-primary"></span>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center mb-3">
+                <span class="fs-4 me-2">👥</span>
+                <span class="fw-bold fs-5 text-secondary">預計出席總人數：<span id="totalCount" class="text-dark fs-4">0</span> 人</span>
+            </div>
+
+            <div id="passengerContainer" style="border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 🔗 這裡已填上您最標準的 GAS 大腦網址 ====================
+const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
+
+// ==================== 📋 這裡就是您原本最正確的長輩名單 ====================
+const baseData = {
+    1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
+    2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
+    3: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "鄭淞壽(全日)"],
+    4: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)", "謝陳麗珠(全日)"],
+    5: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "謝陳麗珠(全日)"]
+};
+
+// ==================== 以下的核心邏輯程式碼請勿更動 ====================
+let absenceList = [];
+const datePicker = document.getElementById('datePicker');
+const weekDayLabel = document.getElementById('weekDayLabel');
+const passengerContainer = document.getElementById('passengerContainer');
+const totalCountEl = document.getElementById('totalCount');
+const overlay = document.getElementById('loadingOverlay');
+
+const today = new Date();
+datePicker.value = today.toISOString().split('T')[0];
+
+function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
+
+async function fetchAbsenceData() {
+    showLoading(true);
+    try {
+        const res = await fetch(`${API_URL}?action=read`);
+        if (!res.ok) throw new Error();
+        absenceList = await res.json();
+    } catch (e) {
+        alert("雲端同步失敗，請確認網路或 GAS 是否正常！");
+    } finally {
+        showLoading(false);
+        renderList();
+    }
+}
+
+function renderList() {
+    const selectedDateStr = datePicker.value;
+    if (!selectedDateStr) return;
+    
+    const d = new Date(selectedDateStr);
+    const dayOfWeek = d.getDay();
+    const weekMap = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+    weekDayLabel.textContent = weekMap[dayOfWeek];
+    
+    passengerContainer.innerHTML = "";
+    const passengers = baseData[dayOfWeek] || [];
+    
+    const todayAbsences = absenceList
+        .filter(item => item.date === selectedDateStr)
+        .map(item => item.name);
+        
+    let currentAttendanceCount = passengers.length;
+    
+    if (passengers.length === 0) {
+        passengerContainer.innerHTML = '<div class="p-4 text-center text-muted bg-white">本日無固定排班長輩</div>';
+        totalCountEl.textContent = "0";
+        return;
+    }
+    
+    passengers.forEach(name => {
+        const isAbsent = todayAbsences.includes(name);
+        if (isAbsent) currentAttendanceCount--;
+        
+        const row = document.createElement('div');
+        row.className = "passenger-row d-flex justify-content-between align-items-center";
+        
+        row.innerHTML = `
+            <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${name}</span>
+            <button class="btn status-btn ${isAbsent ? 'btn-noride' : 'btn-ride'}">${isAbsent ? '不出席' : '要出席'}</button>
+        `;
+        
+        const btn = row.querySelector('button');
+        btn.onclick = () => toggleStatus(selectedDateStr, name, isAbsent);
+        passengerContainer.appendChild(row);
+    });
+    
+    totalCountEl.textContent = currentAttendanceCount;
+}
+
+async function toggleStatus(date, name, isCurrentlyAbsent) {
+    showLoading(true);
+    const action = isCurrentlyAbsent ? "remove" : "add";
+    try {
+        const res = await fetch(`${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}`);
+        if (res.ok) {
+            if (isCurrentlyAbsent) {
+                absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
+            } else {
+                absenceList.push({ date: date, name: name });
+            }
+        } else {
+            alert("同步變更失敗！");
+        }
+    } catch (e) {
+        alert("網路連線錯誤！");
+    } finally {
+        showLoading(false);
+        renderList();
+    }
+}
+
+datePicker.onchange = renderList;
+fetchAbsenceData();
+</script>
+</body>
+</html>
