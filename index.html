@@ -31,8 +31,9 @@
 <div class="loading-overlay" id="loadingOverlay">雲端資料同步中...</div>
 
 <div class="container my-4" style="max-width: 600px;">
+    <!-- 行政報表專區 -->
     <div class="report-section mb-4 border">
-        <h5 class="fw-bold text-primary mb-3">📊 行政月底對帳報表專區</h5>
+        <h5 class="fw-bold text-primary mb-3">📊 行政報表專區</h5>
         <div class="row g-2 align-items-center">
             <div class="col">
                 <input type="month" id="reportMonth" class="form-control">
@@ -45,15 +46,10 @@
 
     <div class="card main-card">
         <div class="card-header-bg">
-            <h2 class="mb-2">📋 誠馨二館出席名單</h2>
+            <h2 class="mb-2">誠馨二館出席名單</h2>
             <p class="mb-0 opacity-75">行政提前排假 ・ 雲端即時同步</p>
         </div>
         <div class="card-body p-4">
-            <div class="alert alert-warning d-flex align-items-center mb-4" role="alert" style="border-radius: 10px;">
-                <span class="fs-4 me-2">💡</span>
-                <div>提示：所有工作人員手機皆會同步！</div>
-            </div>
-
             <div class="row g-3 align-items-center mb-4 pb-3 border-bottom">
                 <div class="col-auto">
                     <label for="datePicker" class="col-form-label fw-bold fs-5">📅 日期：</label>
@@ -68,7 +64,7 @@
 
             <div class="d-flex align-items-center mb-3">
                 <span class="fs-4 me-2">👥</span>
-                <span class="fw-bold fs-5 text-secondary">出席總人數：<span id="totalCount" class="text-dark fs-4">0</span> 人</span>
+                <span class="fw-bold fs-5 text-secondary">今日出席總人數：<span id="totalCount" class="text-dark fs-4">0</span> 人</span>
             </div>
 
             <div id="passengerContainer" style="border-radius: 12px; overflow: hidden;"></div>
@@ -77,10 +73,10 @@
 </div>
 
 <script>
-// ⚠️ 請換成您專屬的 GAS 網址！
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+// ⚠️ 請記得檢查是否需要更換為您最新的 GAS 網址！
+const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
 
-// 💡 長輩數據庫：請在此處輸入真實的身分證字號與長照失能等級（2~8級）
+// 💡 誠馨二館長輩數據庫
 const passengerDatabase = {
     "張福森(全日)": { id: "J100214487", level: 2 },
     "周宇軍(全日)": { id: "J121373534", level: 3 },
@@ -88,12 +84,12 @@ const passengerDatabase = {
     "邱錦雄(全日)": { id: "O100131684", level: 5 },
     "吳月英(全日)": { id: "J200175487", level: 3 },
     "蔡佳年(全日)": { id: "J200619386", level: 4 },
-    "陳昕融(半日)": { id: "G111111111", level: 4 },
-    "鄭淞壽(全日)": { id: "H111111111", level: 4 },
+    "陳昕融(半日)": { id: "B*******", level: 4 },
+    "鄭淞壽(全日)": { id: "A*******", level: 4 },
     "謝陳麗珠(全日)": { id: "J200271304", level: 2 }
 };
 
-// 💡 衛福部最新給付碼別與單價對照表
+// 💡 衛福部給付碼別與單價對照表
 const chaoCodeTable = {
     2: { codeFull: "BB01", codeHalf: "BB02", priceFull: 675, priceHalf: 340 },
     3: { codeFull: "BB03", codeHalf: "BB04", priceFull: 840, priceHalf: 420 },
@@ -110,7 +106,7 @@ const baseData = {
     2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
     3: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "鄭淞壽(全日)"],
     4: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)", "謝陳麗珠(全日)"],
-    5: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "謝陳麗珠(全日)"]
+    5: ["張福森(全日)", "周宇軍(全日)", "甘进財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "謝陳麗珠(全日)"]
 };
 
 let absenceList = [];
@@ -183,7 +179,13 @@ function renderList() {
         }
         
         const pInfo = passengerDatabase[fullName] || { id: "未知", level: 2 };
-        const maskedId = pInfo.id !== "未知" ? `${pInfo.id.substring(0,3)}***${pInfo.id.substring(6)}` : "無資料";
+        
+        let maskedId = "無資料";
+        if (pInfo.id !== "未知" && pInfo.id !== "A*******" && pInfo.id !== "B*******") {
+            maskedId = `${pInfo.id.substring(0,3)}***${pInfo.id.substring(6)}`;
+        } else if (pInfo.id === "A*******" || pInfo.id === "B*******") {
+            maskedId = pInfo.id;
+        }
         
         const row = document.createElement('div');
         row.className = "passenger-row d-flex justify-content-between align-items-center";
@@ -218,7 +220,6 @@ window.handleWriteResponse = function(data) {
     if (oldScript) oldScript.remove();
 };
 
-// 💡 僅保留您照片中打勾的欄位，其餘自動剃除
 function exportMonthlyReport() {
     const targetMonth = reportMonthInput.value; 
     if (!targetMonth) { alert("請選擇月份"); return; }
@@ -228,8 +229,7 @@ function exportMonthlyReport() {
     const daysInMonth = new Date(year, month, 0).getDate();
     
     let csvContent = "\uFEFF"; 
-    // 完全對齊您指定的欄位項目與順序
-    csvContent += "身分證字號,服務日期(請輸入7碼),服務項目代碼,單價,起始時段-小時(24小時制),起始時段-分鐘,結束時段-小時(24小時制),結束時段-分鐘\n";
+    csvContent += "身分證字號,服務日期(請輸入7碼),服務項目代碼,單價,起始時段-小時(24小時制),起始時段-分鐘,結束時段-小時(24小時制),結束時段-分鐘,備註\n";
     
     const monthAbsences = absenceList.filter(item => item && item.date.startsWith(targetMonth));
     let hasData = false;
@@ -247,7 +247,6 @@ function exportMonthlyReport() {
         todaySchedule.forEach(fullName => {
             const isAbsent = monthAbsences.some(a => a.date === dateStr && a.name === fullName);
             
-            // 實際有出席，才產生一列
             if (!isAbsent) {
                 hasData = true;
                 const info = passengerDatabase[fullName] || { id: "無資料", level: 2 };
@@ -256,13 +255,13 @@ function exportMonthlyReport() {
                 let endHour = isHalf ? 12 : 16;
                 let endMin = isHalf ? 0 : 30;
                 
-                // 根據等級自動抓取代碼與單價
                 const rule = chaoCodeTable[info.level] || chaoCodeTable[2];
                 let serviceCode = isHalf ? rule.codeHalf : rule.codeFull;
                 let totalPrice = isHalf ? rule.priceHalf : rule.priceFull;
                 
-                // 按順序寫入格子：身份證、日期、代碼、單價、起時、起分、結時、結分
-                csvContent += `"${info.id}","${minguoDateStr}","${serviceCode}",${totalPrice},8,0,${endHour},${endMin}\n`;
+                let cleanName = fullName.replace("(全日)", "").replace("(半日)", "");
+                
+                csvContent += `"${info.id}","${minguoDateStr}","${serviceCode}",${totalPrice},8,0,${endHour},${endMin},"${cleanName}"\n`;
             }
         });
     }
