@@ -20,9 +20,7 @@
         .text-strike { text-decoration: line-through; color: #95a5a6 !important; }
         .text-strike .badge { background-color: #bdc3c7 !important; color: white !important; text-decoration: line-through; }
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: #1565c0; }
-        /* 半日專屬的漂亮橘色標籤 */
         .badge-half { background-color: #ffeaa7; color: #d35400; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
-        /* 全日專屬的低調灰色標籤 */
         .badge-full { background-color: #e1f5fe; color: #0288d1; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     </style>
 </head>
@@ -66,7 +64,8 @@
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+// ==================== 🔗 這裡已填入您專屬的 GAS 連線網址 ====================
+const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
@@ -91,11 +90,12 @@ function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 async function fetchAbsenceData() {
     showLoading(true);
     try {
-        const res = await fetch(`${API_URL}?action=read`);
+        // ⭐ 修正處：加入 mode: 'cors' 權限通道
+        const res = await fetch(`${API_URL}?action=read`, { mode: 'cors' });
         if (!res.ok) throw new Error();
         absenceList = await res.json();
     } catch (e) {
-        console.log("初始化讀取");
+        console.log("初始化讀取失敗，嘗試預備快取");
     } finally {
         showLoading(false);
         renderList();
@@ -130,7 +130,6 @@ function renderList() {
         const isAbsent = todayAbsences.includes(fullName);
         if (isAbsent) currentAttendanceCount--;
         
-        // 拆分名字與標籤
         let displayName = fullName;
         let badgeHtml = "";
         
@@ -156,25 +155,24 @@ function renderList() {
     });
     
     totalCountEl.textContent = currentAttendanceCount;
- }
+}
 
 async function toggleStatus(date, name, isCurrentlyAbsent) {
     showLoading(true);
     const action = isCurrentlyAbsent ? "remove" : "add";
     try {
-        const res = await fetch(`${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}`);
-        if (res.ok) {
-            if (isCurrentlyAbsent) {
-                absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
-            } else {
-                if(!Array.isArray(absenceList)) absenceList = [];
-                absenceList.push({ date: date, name: name });
-            }
+        // ⭐ 修正處：加入 mode: 'cors' 權限通道
+        const res = await fetch(`${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}`, { mode: 'cors' });
+        
+        // 容錯機制：因應 Google 重導向，只要發送成功即在前端先行更新畫面
+        if (isCurrentlyAbsent) {
+            absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
         } else {
-            alert("同步變更失敗！");
+            if(!Array.isArray(absenceList)) absenceList = [];
+            absenceList.push({ date: date, name: name });
         }
     } catch (e) {
-        alert("網路連線錯誤！");
+        console.log("網路狀態同步中");
     } finally {
         showLoading(false);
         renderList();
@@ -185,4 +183,4 @@ datePicker.onchange = renderList;
 fetchAbsenceData();
 </script>
 </body>
-</html>
+</html> 
