@@ -11,7 +11,7 @@
         .card-header-bg { background: linear-gradient(135deg, #1e88e5, #1565c0); color: white; padding: 24px; text-align: center; }
         .passenger-row { padding: 16px; border-bottom: 1px solid #edf2f7; background: white; }
         .passenger-row:last-child { border-bottom: none; }
-        .status-btn { width: 100px; font-weight: bold; border-radius: 8px; transition: all 0.1s; }
+        .status-btn { width: 100px; font-weight: bold; border-radius: 8px; }
         .btn-ride { background-color: #2ecc71; color: white; border: none; }
         .btn-ride:hover { background-color: #27ae60; color: white; }
         .btn-noride { background-color: #e74c3c; color: white; border: none; text-decoration: line-through; }
@@ -64,7 +64,7 @@
 
 <script>
 // ⚠️ 請務必把雙引號裡面換成您剛剛「第一步第7點」複製的那串最新 GAS 網址！
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
@@ -86,7 +86,7 @@ datePicker.value = today.toISOString().split('T')[0];
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
-// 終極 JSONP 連線機制：完全繞過瀏覽器阻擋，穩定度 100%
+// 讀取雲端
 function fetchAbsenceData() {
     showLoading(true);
     const script = document.createElement('script');
@@ -161,24 +161,16 @@ function renderList() {
 function toggleStatus(date, name, isCurrentlyAbsent) {
     showLoading(true);
     const action = isCurrentlyAbsent ? "remove" : "add";
-    
-    // 點擊瞬間前端直接畫紅線變色，完全不拖泥帶水
-    if (isCurrentlyAbsent) {
-        absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
-    } else {
-        if(!Array.isArray(absenceList)) absenceList = [];
-        absenceList.push({ date: date, name: name });
-    }
-    renderList();
 
-    // 背景送出 JSONP 請求寫入 Google 試算表，絕不跳連線錯誤視窗
+    // 寫入 Google 試算表，成功後才重新載入資料，保證「絕對儲存成功」
     const script = document.createElement('script');
     script.src = `${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}&callback=handleWriteResponse&_=` + new Date().getTime();
     document.body.appendChild(script);
 }
 
 window.handleWriteResponse = function(data) {
-    showLoading(false);
+    // 當後台回傳成功寫入的訊號後，立刻重新抓取雲端名單更新畫面
+    fetchAbsenceData();
     const oldScript = document.querySelector('script[src*="handleWriteResponse"]');
     if (oldScript) oldScript.remove();
 };
