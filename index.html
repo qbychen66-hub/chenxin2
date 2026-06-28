@@ -193,7 +193,7 @@ function renderList() {
                 <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${displayName} ${badgeHtml}</span>
                 <span class="id-num">身分證：${maskedId} | 等級：${pInfo.level}級</span>
             </div>
-            <button class="btn status-btn ${isAbsent ? 'btn-noride' : 'btn-ride'}">${isAbsent ? '不出席' : '要出席'}</button>
+            <button class="btn status-btn ${isAbsent ? 'btn-noride' : 'btn-ride'}">${isAbsent ? '不出席' : '出席'}</button>
         `;
         
         const btn = row.querySelector('button');
