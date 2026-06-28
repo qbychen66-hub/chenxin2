@@ -63,8 +63,8 @@
 </div>
 
 <script>
-// ⚠️ 請務必把雙引號裡面換成您剛剛「第一步第7點」複製的那串最新 GAS 網址！
-const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
+// ⚠️ 請記得換成您在剛剛第一步複製的「最新 /exec 網址」！
+const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
@@ -86,7 +86,6 @@ datePicker.value = today.toISOString().split('T')[0];
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
-// 讀取雲端
 function fetchAbsenceData() {
     showLoading(true);
     const script = document.createElement('script');
@@ -162,14 +161,13 @@ function toggleStatus(date, name, isCurrentlyAbsent) {
     showLoading(true);
     const action = isCurrentlyAbsent ? "remove" : "add";
 
-    // 寫入 Google 試算表，成功後才重新載入資料，保證「絕對儲存成功」
     const script = document.createElement('script');
     script.src = `${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}&callback=handleWriteResponse&_=` + new Date().getTime();
     document.body.appendChild(script);
 }
 
 window.handleWriteResponse = function(data) {
-    // 當後台回傳成功寫入的訊號後，立刻重新抓取雲端名單更新畫面
+    // 儲存成功後，強制從雲端重新撈取最新被格式化好的正確名單，鎖緊同步！
     fetchAbsenceData();
     const oldScript = document.querySelector('script[src*="handleWriteResponse"]');
     if (oldScript) oldScript.remove();
