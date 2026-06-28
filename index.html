@@ -20,7 +20,11 @@
         .id-num { font-size: 0.85rem; color: #7f8c8d; font-weight: normal; }
         .text-strike { text-decoration: line-through; color: #95a5a6 !important; }
         .text-strike .badge { background-color: #bdc3c7 !important; color: white !important; text-decoration: line-through; }
-        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: #1565c0; }
+        
+        /* 修正後的讀取畫面 */
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: #1565c0; }
+        .loading-btn { margin-top: 15px; font-size: 0.9rem; padding: 5px 15px; border-radius: 20px; }
+
         .badge-half { background-color: #ffeaa7; color: #d35400; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
         .badge-full { background-color: #e1f5fe; color: #0288d1; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
         .report-section { background-color: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
@@ -28,7 +32,10 @@
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay">雲端資料同步中...</div>
+<div class="loading-overlay" id="loadingOverlay">
+    <div>🌀 雲端資料同步中...</div>
+    <button class="btn btn-outline-secondary loading-btn" onclick="showLoading(false)">若卡住請點此關閉</button>
+</div>
 
 <div class="container my-4" style="max-width: 600px;">
     <div class="report-section mb-4 border">
@@ -72,10 +79,9 @@
 </div>
 
 <script>
-// 💡 您的真實雲端資料庫網址
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+// 💡 修正：已補上正確的字母 "Z"，請放心使用！
+const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
-// 💡 誠馨二館長輩數據庫
 const passengerDatabase = {
     "張福森(全日)": { id: "J100214487", level: 2 },
     "周宇軍(全日)": { id: "J121373534", level: 3 },
@@ -88,7 +94,6 @@ const passengerDatabase = {
     "謝陳麗珠(全日)": { id: "J200271304", level: 2 }
 };
 
-// 💡 衛福部給付碼別與單價對照表
 const chaoCodeTable = {
     2: { codeFull: "BB01", codeHalf: "BB02", priceFull: 675, priceHalf: 340 },
     3: { codeFull: "BB03", codeHalf: "BB04", priceFull: 840, priceHalf: 420 },
@@ -99,7 +104,6 @@ const chaoCodeTable = {
     8: { codeFull: "BB13", codeHalf: "BB14", priceFull: 1500, priceHalf: 750 }
 };
 
-// 每日固定排班表
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
     2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
@@ -116,11 +120,10 @@ const totalCountEl = document.getElementById('totalCount');
 const overlay = document.getElementById('loadingOverlay');
 const reportMonthInput = document.getElementById('reportMonth');
 
-// 💡 修正：強制使用在地化日期格式，精準鎖定「今天」避免任何快取
+// 自動校正日期
 const now = new Date();
 const tzOffset = now.getTimezoneOffset() * 60000; 
 const localISOTime = (new Date(now - tzOffset)).toISOString().split('T')[0];
-
 datePicker.value = localISOTime;
 reportMonthInput.value = localISOTime.substring(0, 7);
 
@@ -145,54 +148,31 @@ window.handleReadResponse = function(data) {
 function renderList() {
     const selectedDateStr = datePicker.value;
     if (!selectedDateStr) return;
-    
     const d = new Date(selectedDateStr);
     const dayOfWeek = d.getDay();
     const weekMap = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
     weekDayLabel.textContent = weekMap[dayOfWeek];
-    
     passengerContainer.innerHTML = "";
     const passengers = baseData[dayOfWeek] || [];
-    
-    const todayAbsences = Array.isArray(absenceList) 
-        ? absenceList.filter(item => item && item.date === selectedDateStr).map(item => item.name)
-        : [];
-        
+    const todayAbsences = Array.isArray(absenceList) ? absenceList.filter(item => item && item.date === selectedDateStr).map(item => item.name) : [];
     let currentAttendanceCount = passengers.length;
-    
     if (passengers.length === 0) {
         passengerContainer.innerHTML = '<div class="p-4 text-center text-muted bg-white">本日無固定排班長輩</div>';
         totalCountEl.textContent = "0";
         return;
     }
-    
     passengers.forEach(fullName => {
         const isAbsent = todayAbsences.includes(fullName);
         if (isAbsent) currentAttendanceCount--;
-        
-        let displayName = fullName;
-        let badgeHtml = "";
-        
-        if (fullName.includes("(半日)")) {
-            displayName = fullName.replace("(半日)", "");
-            badgeHtml = `<span class="badge badge-half">半日</span>`;
-        } else if (fullName.includes("(全日)")) {
-            displayName = fullName.replace("(全日)", "");
-            badgeHtml = `<span class="badge badge-full">全日</span>`;
-        }
-        
+        let displayName = fullName.replace("(半日)", "").replace("(全日)", "");
+        let badgeHtml = fullName.includes("(半日)") ? `<span class="badge badge-half">半日</span>` : `<span class="badge badge-full">全日</span>`;
         const pInfo = passengerDatabase[fullName] || { id: "未知", level: 2 };
-        
-        let maskedId = "無資料";
-        if (pInfo.id !== "未知" && pInfo.id !== "A*******" && pInfo.id !== "B*******") {
+        let maskedId = pInfo.id;
+        if (pInfo.id !== "未知" && !pInfo.id.includes("*")) {
             maskedId = `${pInfo.id.substring(0,3)}***${pInfo.id.substring(6)}`;
-        } else if (pInfo.id === "A*******" || pInfo.id === "B*******") {
-            maskedId = pInfo.id;
         }
-        
         const row = document.createElement('div');
         row.className = "passenger-row d-flex justify-content-between align-items-center";
-        
         row.innerHTML = `
             <div class="d-flex flex-column">
                 <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${displayName} ${badgeHtml}</span>
@@ -200,12 +180,9 @@ function renderList() {
             </div>
             <button class="btn status-btn ${isAbsent ? 'btn-noride' : 'btn-ride'}">${isAbsent ? '不出席' : '出席'}</button>
         `;
-        
-        const btn = row.querySelector('button');
-        btn.onclick = () => toggleStatus(selectedDateStr, fullName, isAbsent);
+        row.querySelector('button').onclick = () => toggleStatus(selectedDateStr, fullName, isAbsent);
         passengerContainer.appendChild(row);
     });
-    
     totalCountEl.textContent = currentAttendanceCount;
 }
 
@@ -219,67 +196,34 @@ function toggleStatus(date, name, isCurrentlyAbsent) {
 
 window.handleWriteResponse = function(data) {
     fetchAbsenceData();
-    const oldScript = document.querySelector('script[src*="handleWriteResponse"]');
-    if (oldScript) oldScript.remove();
 };
 
 function exportMonthlyReport() {
     const targetMonth = reportMonthInput.value; 
-    if (!targetMonth) { alert("請選擇月份"); return; }
-    
+    if (!targetMonth) return;
     const year = parseInt(targetMonth.split('-')[0]);
     const month = parseInt(targetMonth.split('-')[1]);
     const daysInMonth = new Date(year, month, 0).getDate();
-    
-    let csvContent = "\uFEFF"; 
-    csvContent += "身分證字號,服務日期(請輸入7碼),服務項目代碼,單價,起始時段-小時(24小時制),起始時段-分鐘,結束時段-小時(24小時制),結束時段-分鐘,備註\n";
-    
+    let csvContent = "\uFEFF身分證字號,服務日期(請輸入7碼),服務項目代碼,單價,起始時段-小時(24小時制),起始時段-分鐘,結束時段-小時(24小時制),結束時段-分鐘,備註\n";
     const monthAbsences = absenceList.filter(item => item && item.date.startsWith(targetMonth));
-    let hasData = false;
-
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${targetMonth}-${String(day).padStart(2, '0')}`;
-        const currentObj = new Date(year, month - 1, day);
-        const w = currentObj.getDay();
-        
-        const minguoYear = year - 1911;
-        const minguoDateStr = `${minguoYear}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
-        
-        const todaySchedule = baseData[w] || [];
-        
-        todaySchedule.forEach(fullName => {
-            const isAbsent = monthAbsences.some(a => a.date === dateStr && a.name === fullName);
-            
-            if (!isAbsent) {
-                hasData = true;
+        const w = (new Date(year, month - 1, day)).getDay();
+        const minguoDateStr = `${year - 1911}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+        (baseData[w] || []).forEach(fullName => {
+            if (!monthAbsences.some(a => a.date === dateStr && a.name === fullName)) {
                 const info = passengerDatabase[fullName] || { id: "無資料", level: 2 };
                 const isHalf = fullName.includes("(半日)");
-                
-                let endHour = isHalf ? 12 : 16;
-                let endMin = isHalf ? 0 : 30;
-                
                 const rule = chaoCodeTable[info.level] || chaoCodeTable[2];
-                let serviceCode = isHalf ? rule.codeHalf : rule.codeFull;
-                let totalPrice = isHalf ? rule.priceHalf : rule.priceFull;
-                
-                let cleanName = fullName.replace("(全日)", "").replace("(半日)", "");
-                
-                csvContent += `"${info.id}","${minguoDateStr}","${serviceCode}",${totalPrice},8,0,${endHour},${endMin},"${cleanName}"\n`;
+                csvContent += `"${info.id}","${minguoDateStr}","${isHalf ? rule.codeHalf : rule.codeFull}",${isHalf ? rule.priceHalf : rule.priceFull},8,0,${isHalf ? 12 : 16},${isHalf ? 0 : 30},"${fullName.replace("(全日)", "").replace("(半日)", "")}"\n`;
             }
         });
     }
-    
-    if (!hasData) { alert("該月份無任何出席紀錄。"); return; }
-    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `誠馨二館_${targetMonth}_申報總表.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = URL.createObjectURL(blob);
+    link.download = `誠馨二館_${targetMonth}_核銷表.csv`;
     link.click();
-    document.body.removeChild(link);
 }
 
 datePicker.onchange = fetchAbsenceData; 
