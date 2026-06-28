@@ -73,7 +73,7 @@
 
 <script>
 // 💡 您的真實雲端資料庫網址
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
 // 💡 誠馨二館長輩數據庫
 const passengerDatabase = {
@@ -99,7 +99,7 @@ const chaoCodeTable = {
     8: { codeFull: "BB13", codeHalf: "BB14", priceFull: 1500, priceHalf: 750 }
 };
 
-// 每日固定排班表 (★已修正週五甘進財的錯字)
+// 每日固定排班表
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
     2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
@@ -116,9 +116,13 @@ const totalCountEl = document.getElementById('totalCount');
 const overlay = document.getElementById('loadingOverlay');
 const reportMonthInput = document.getElementById('reportMonth');
 
-const today = new Date();
-datePicker.value = today.toISOString().split('T')[0];
-reportMonthInput.value = today.toISOString().substring(0, 7);
+// 💡 修正：強制使用在地化日期格式，精準鎖定「今天」避免任何快取
+const now = new Date();
+const tzOffset = now.getTimezoneOffset() * 60000; 
+const localISOTime = (new Date(now - tzOffset)).toISOString().split('T')[0];
+
+datePicker.value = localISOTime;
+reportMonthInput.value = localISOTime.substring(0, 7);
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
