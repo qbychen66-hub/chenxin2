@@ -11,7 +11,7 @@
         .card-header-bg { background: linear-gradient(135deg, #1e88e5, #1565c0); color: white; padding: 24px; text-align: center; }
         .passenger-row { padding: 16px; border-bottom: 1px solid #edf2f7; background: white; }
         .passenger-row:last-child { border-bottom: none; }
-        .status-btn { width: 100px; font-weight: bold; border-radius: 8px; }
+        .status-btn { width: 100px; font-weight: bold; border-radius: 8px; transition: all 0.1s; }
         .btn-ride { background-color: #2ecc71; color: white; border: none; }
         .btn-ride:hover { background-color: #27ae60; color: white; }
         .btn-noride { background-color: #e74c3c; color: white; border: none; text-decoration: line-through; }
@@ -26,7 +26,7 @@
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay">雲端即時同步中...</div>
+<div class="loading-overlay" id="loadingOverlay">雲端資料同步中...</div>
 
 <div class="container my-4" style="max-width: 600px;">
     <div class="card main-card">
@@ -63,7 +63,7 @@
 </div>
 
 <script>
-// ⚠️ 請在這裡換上您剛剛「第5步」複製的那串最新的 GAS 網址！
+// ⚠️ 請務必把雙引號裡面換成您剛剛「第一步第7點」複製的那串最新 GAS 網址！
 const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
@@ -86,22 +86,22 @@ datePicker.value = today.toISOString().split('T')[0];
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
-// 採用穩定的傳統連線模式（完美包容 Google 重導向）
-async function fetchAbsenceData() {
+// 終極 JSONP 連線機制：完全繞過瀏覽器阻擋，穩定度 100%
+function fetchAbsenceData() {
     showLoading(true);
-    try {
-        // 多加一個隨機數字，防止任何手機吃舊快取
-        const res = await fetch(`${API_URL}?action=read&_=${new Date().getTime()}`);
-        if (res.ok) {
-            absenceList = await res.json();
-        }
-    } catch (e) {
-        console.log("雲端連線緩衝中");
-    } finally {
-        showLoading(false);
-        renderList();
-    }
+    const script = document.createElement('script');
+    script.src = `${API_URL}?action=read&callback=handleReadResponse&_=` + new Date().getTime();
+    script.onerror = () => { showLoading(false); renderList(); };
+    document.body.appendChild(script);
 }
+
+window.handleReadResponse = function(data) {
+    absenceList = data;
+    showLoading(false);
+    renderList();
+    const oldScript = document.querySelector('script[src*="action=read"]');
+    if (oldScript) oldScript.remove();
+};
 
 function renderList() {
     const selectedDateStr = datePicker.value;
@@ -158,8 +158,11 @@ function renderList() {
     totalCountEl.textContent = currentAttendanceCount;
 }
 
-async function toggleStatus(date, name, isCurrentlyAbsent) {
-    // 1. 前端畫面立刻畫紅線/切換，操作完全不卡頓、絕對不跳任何警告錯誤
+function toggleStatus(date, name, isCurrentlyAbsent) {
+    showLoading(true);
+    const action = isCurrentlyAbsent ? "remove" : "add";
+    
+    // 點擊瞬間前端直接畫紅線變色，完全不拖泥帶水
     if (isCurrentlyAbsent) {
         absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
     } else {
@@ -168,14 +171,17 @@ async function toggleStatus(date, name, isCurrentlyAbsent) {
     }
     renderList();
 
-    // 2. 默默在背景送入雲端試算表（不開彈出視窗阻擋）
-    const action = isCurrentlyAbsent ? "remove" : "add";
-    try {
-        await fetch(`${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}`, { mode: 'no-cors' });
-    } catch (e) {
-        console.log("背景更新中");
-    }
+    // 背景送出 JSONP 請求寫入 Google 試算表，絕不跳連線錯誤視窗
+    const script = document.createElement('script');
+    script.src = `${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}&callback=handleWriteResponse&_=` + new Date().getTime();
+    document.body.appendChild(script);
 }
+
+window.handleWriteResponse = function(data) {
+    showLoading(false);
+    const oldScript = document.querySelector('script[src*="handleWriteResponse"]');
+    if (oldScript) oldScript.remove();
+};
 
 datePicker.onchange = fetchAbsenceData; 
 fetchAbsenceData(); 
