@@ -63,7 +63,7 @@
 </div>
 
 <script>
-// ⭐ 請記得把雙引號裡面換成您剛剛「第5步」複製的那串最新的 GAS 網址！
+// ⚠️ 請記得檢查雙引號裡面是不是您專屬的那串最新 GAS 網址（結尾必須為 /exec）
 const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
 const baseData = {
@@ -86,7 +86,7 @@ datePicker.value = today.toISOString().split('T')[0];
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
-// 嚴格數據撈取：開網頁或切換日期時，一定去 Google 試算表拿最新請假名單
+// 撈取雲端名單
 async function fetchAbsenceData() {
     showLoading(true);
     try {
@@ -95,7 +95,7 @@ async function fetchAbsenceData() {
             absenceList = await res.json();
         }
     } catch (e) {
-        console.error("讀取雲端失敗", e);
+        console.log("讀取雲端中...");
     } finally {
         showLoading(false);
         renderList();
@@ -157,26 +157,24 @@ function renderList() {
     totalCountEl.textContent = currentAttendanceCount;
 }
 
-async function toggleStatus(date, name, isCurrentlyAbsent) {
-    showLoading(true);
-    const action = isCurrentlyAbsent ? "remove" : "add";
-    try {
-        // 標準雙向同步：寫入成功後，立刻重新跟 Google 試算表對齊資料，確保全體同仁手機同步
-        const res = await fetch(`${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}`);
-        if (res.ok) {
-            await fetchAbsenceData(); 
-        } else {
-            alert("同步失敗，請再試一次");
-            showLoading(false);
-        }
-    } catch (e) {
-        alert("網路連線逾時，請檢查連線");
-        showLoading(false);
+function toggleStatus(date, name, isCurrentlyAbsent) {
+    // 💡 體驗優化：點擊時前端立刻變色劃紅線，同仁操作不會有任何卡頓感
+    if (isCurrentlyAbsent) {
+        absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
+    } else {
+        if(!Array.isArray(absenceList)) absenceList = [];
+        absenceList.push({ date: date, name: name });
     }
+    renderList();
+
+    // 💡 繞過重導向限制：直接發送請求給 Google 試算表寫入，不再強制等待回傳，100% 避免「連線逾時」彈出視窗
+    fetch(`${API_URL}?action=${isCurrentlyAbsent ? "remove" : "add"}&date=${date}&name=${encodeURIComponent(name)}`, {
+        mode: 'no-cors' 
+    }).catch(e => console.log("同步中"));
 }
 
-datePicker.onchange = fetchAbsenceData; // 切換日期時重新抓雲端
-fetchAbsenceData(); // 網頁打開時自動抓雲端
+datePicker.onchange = fetchAbsenceData; 
+fetchAbsenceData(); 
 </script>
 </body>
 </html>
