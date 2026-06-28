@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>誠馨二館每日出席名單</title>
+    <title>誠馨二館出席名單</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f7f6; font-family: "Helvetica Neue", Arial, "Noto Sans TC", sans-serif; }
@@ -17,11 +17,13 @@
         .btn-noride { background-color: #e74c3c; color: white; border: none; text-decoration: line-through; }
         .btn-noride:hover { background-color: #c0392b; color: white; }
         .passenger-name { font-size: 1.15rem; font-weight: 600; color: #2c3e50; display: flex; align-items: center; gap: 8px; }
+        .id-num { font-size: 0.85rem; color: #7f8c8d; font-weight: normal; }
         .text-strike { text-decoration: line-through; color: #95a5a6 !important; }
         .text-strike .badge { background-color: #bdc3c7 !important; color: white !important; text-decoration: line-through; }
         .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 9999; justify-content: center; align-items: center; font-size: 1.2rem; font-weight: bold; color: #1565c0; }
         .badge-half { background-color: #ffeaa7; color: #d35400; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
         .badge-full { background-color: #e1f5fe; color: #0288d1; font-size: 0.85rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+        .report-section { background-color: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
     </style>
 </head>
 <body>
@@ -29,15 +31,27 @@
 <div class="loading-overlay" id="loadingOverlay">雲端資料同步中...</div>
 
 <div class="container my-4" style="max-width: 600px;">
+    <div class="report-section mb-4 border">
+        <h5 class="fw-bold text-primary mb-3">📊 行政月底對帳報表專區</h5>
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <input type="month" id="reportMonth" class="form-control">
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary fw-bold" onclick="exportMonthlyReport()">📥 匯出核銷 Excel 總表</button>
+            </div>
+        </div>
+    </div>
+
     <div class="card main-card">
         <div class="card-header-bg">
-            <h2 class="mb-2">📋 誠馨二館每日出席名單</h2>
+            <h2 class="mb-2">📋 誠馨二館出席名單</h2>
             <p class="mb-0 opacity-75">行政提前排假 ・ 雲端即時同步</p>
         </div>
         <div class="card-body p-4">
             <div class="alert alert-warning d-flex align-items-center mb-4" role="alert" style="border-radius: 10px;">
                 <span class="fs-4 me-2">💡</span>
-                <div>提示：所有工作人員手機皆會同步看到最新的請假紅線！</div>
+                <div>提示：所有工作人員手機皆會同步！</div>
             </div>
 
             <div class="row g-3 align-items-center mb-4 pb-3 border-bottom">
@@ -54,7 +68,7 @@
 
             <div class="d-flex align-items-center mb-3">
                 <span class="fs-4 me-2">👥</span>
-                <span class="fw-bold fs-5 text-secondary">預計出席總人數：<span id="totalCount" class="text-dark fs-4">0</span> 人</span>
+                <span class="fw-bold fs-5 text-secondary">出席總人數：<span id="totalCount" class="text-dark fs-4">0</span> 人</span>
             </div>
 
             <div id="passengerContainer" style="border-radius: 12px; overflow: hidden;"></div>
@@ -63,9 +77,34 @@
 </div>
 
 <script>
-// ⚠️ 請記得換成您在剛剛第一步複製的「最新 /exec 網址」！
+// ⚠️ 請換成您專屬的 GAS 網址！
 const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
 
+// 💡 長輩數據庫：請在此處輸入真實的身分證字號與長照失能等級（2~8級）
+const passengerDatabase = {
+    "張福森(全日)": { id: "J100214487", level: 2 },
+    "周宇軍(全日)": { id: "J121373534", level: 3 },
+    "甘進財(全日)": { id: "K101227649", level: 6 },
+    "邱錦雄(全日)": { id: "O100131684", level: 5 },
+    "吳月英(全日)": { id: "J200175487", level: 3 },
+    "蔡佳年(全日)": { id: "J200619386", level: 4 },
+    "陳昕融(半日)": { id: "G111111111", level: 4 },
+    "鄭淞壽(全日)": { id: "H111111111", level: 4 },
+    "謝陳麗珠(全日)": { id: "J200271304", level: 2 }
+};
+
+// 💡 衛福部最新給付碼別與單價對照表
+const chaoCodeTable = {
+    2: { codeFull: "BB01", codeHalf: "BB02", priceFull: 675, priceHalf: 340 },
+    3: { codeFull: "BB03", codeHalf: "BB04", priceFull: 840, priceHalf: 420 },
+    4: { codeFull: "BB05", codeHalf: "BB06", priceFull: 970, priceHalf: 485 },
+    5: { codeFull: "BB07", codeHalf: "BB08", priceFull: 1100, priceHalf: 550 },
+    6: { codeFull: "BB09", codeHalf: "BB10", priceFull: 1230, priceHalf: 615 },
+    7: { codeFull: "BB11", codeHalf: "BB12", priceFull: 1360, priceHalf: 680 },
+    8: { codeFull: "BB13", codeHalf: "BB14", priceFull: 1500, priceHalf: 750 }
+};
+
+// 每日固定排班表
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
     2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
@@ -80,9 +119,11 @@ const weekDayLabel = document.getElementById('weekDayLabel');
 const passengerContainer = document.getElementById('passengerContainer');
 const totalCountEl = document.getElementById('totalCount');
 const overlay = document.getElementById('loadingOverlay');
+const reportMonthInput = document.getElementById('reportMonth');
 
 const today = new Date();
 datePicker.value = today.toISOString().split('T')[0];
+reportMonthInput.value = today.toISOString().substring(0, 7);
 
 function showLoading(show) { overlay.style.display = show ? 'flex' : 'none'; }
 
@@ -141,11 +182,17 @@ function renderList() {
             badgeHtml = `<span class="badge badge-full">全日</span>`;
         }
         
+        const pInfo = passengerDatabase[fullName] || { id: "未知", level: 2 };
+        const maskedId = pInfo.id !== "未知" ? `${pInfo.id.substring(0,3)}***${pInfo.id.substring(6)}` : "無資料";
+        
         const row = document.createElement('div');
         row.className = "passenger-row d-flex justify-content-between align-items-center";
         
         row.innerHTML = `
-            <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${displayName} ${badgeHtml}</span>
+            <div class="d-flex flex-column">
+                <span class="passenger-name ${isAbsent ? 'text-strike' : ''}">${displayName} ${badgeHtml}</span>
+                <span class="id-num">身分證：${maskedId} | 等級：${pInfo.level}級</span>
+            </div>
             <button class="btn status-btn ${isAbsent ? 'btn-noride' : 'btn-ride'}">${isAbsent ? '不出席' : '要出席'}</button>
         `;
         
@@ -160,18 +207,78 @@ function renderList() {
 function toggleStatus(date, name, isCurrentlyAbsent) {
     showLoading(true);
     const action = isCurrentlyAbsent ? "remove" : "add";
-
     const script = document.createElement('script');
     script.src = `${API_URL}?action=${action}&date=${date}&name=${encodeURIComponent(name)}&callback=handleWriteResponse&_=` + new Date().getTime();
     document.body.appendChild(script);
 }
 
 window.handleWriteResponse = function(data) {
-    // 儲存成功後，強制從雲端重新撈取最新被格式化好的正確名單，鎖緊同步！
     fetchAbsenceData();
     const oldScript = document.querySelector('script[src*="handleWriteResponse"]');
     if (oldScript) oldScript.remove();
 };
+
+// 💡 僅保留您照片中打勾的欄位，其餘自動剃除
+function exportMonthlyReport() {
+    const targetMonth = reportMonthInput.value; 
+    if (!targetMonth) { alert("請選擇月份"); return; }
+    
+    const year = parseInt(targetMonth.split('-')[0]);
+    const month = parseInt(targetMonth.split('-')[1]);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    
+    let csvContent = "\uFEFF"; 
+    // 完全對齊您指定的欄位項目與順序
+    csvContent += "身分證字號,服務日期(請輸入7碼),服務項目代碼,單價,起始時段-小時(24小時制),起始時段-分鐘,結束時段-小時(24小時制),結束時段-分鐘\n";
+    
+    const monthAbsences = absenceList.filter(item => item && item.date.startsWith(targetMonth));
+    let hasData = false;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${targetMonth}-${String(day).padStart(2, '0')}`;
+        const currentObj = new Date(year, month - 1, day);
+        const w = currentObj.getDay();
+        
+        const minguoYear = year - 1911;
+        const minguoDateStr = `${minguoYear}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+        
+        const todaySchedule = baseData[w] || [];
+        
+        todaySchedule.forEach(fullName => {
+            const isAbsent = monthAbsences.some(a => a.date === dateStr && a.name === fullName);
+            
+            // 實際有出席，才產生一列
+            if (!isAbsent) {
+                hasData = true;
+                const info = passengerDatabase[fullName] || { id: "無資料", level: 2 };
+                const isHalf = fullName.includes("(半日)");
+                
+                let endHour = isHalf ? 12 : 16;
+                let endMin = isHalf ? 0 : 30;
+                
+                // 根據等級自動抓取代碼與單價
+                const rule = chaoCodeTable[info.level] || chaoCodeTable[2];
+                let serviceCode = isHalf ? rule.codeHalf : rule.codeFull;
+                let totalPrice = isHalf ? rule.priceHalf : rule.priceFull;
+                
+                // 按順序寫入格子：身份證、日期、代碼、單價、起時、起分、結時、結分
+                csvContent += `"${info.id}","${minguoDateStr}","${serviceCode}",${totalPrice},8,0,${endHour},${endMin}\n`;
+            }
+        });
+    }
+    
+    if (!hasData) { alert("該月份無任何出席紀錄。"); return; }
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `誠馨二館_${targetMonth}_申報總表.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
 
 datePicker.onchange = fetchAbsenceData; 
 fetchAbsenceData(); 
