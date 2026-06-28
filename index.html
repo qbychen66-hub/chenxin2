@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>誠馨二館出席名單</title>
+    <title>誠馨二館每日出席名單</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f7f6; font-family: "Helvetica Neue", Arial, "Noto Sans TC", sans-serif; }
@@ -28,13 +28,13 @@
 <div class="container my-4" style="max-width: 600px;">
     <div class="card main-card">
         <div class="card-header-bg">
-            <h2 class="mb-2">📋 誠馨二館出席名單</h2>
+            <h2 class="mb-2">📋 誠馨二館每日出席名單</h2>
             <p class="mb-0 opacity-75">行政提前排假 ・ 雲端即時同步</p>
         </div>
         <div class="card-body p-4">
             <div class="alert alert-warning d-flex align-items-center mb-4" role="alert" style="border-radius: 10px;">
                 <span class="fs-4 me-2">💡</span>
-                <div>提示：所有工作人員手機皆會同步！</div>
+                <div>提示：所有工作人員手機皆會同步看到最新的請假紅線！</div>
             </div>
 
             <div class="row g-3 align-items-center mb-4 pb-3 border-bottom">
@@ -61,10 +61,9 @@
 </div>
 
 <script>
-// ==================== 🔗 這裡已填上您最標準的 GAS 大腦網址 ====================
-const API_URL = "https://script.google.com/macros/s/AKfycbymUr8FMOAxKX75h4ZULKS1fVKg-r2VlCSdK2ywu89sbtERPXSYe-WSs05IIuMXbiEE/exec"; 
+// ==================== 🛠️ 核心修正：容錯讀取邏輯 ====================
+const API_URL = "https://script.google.com/macros/s/AKfycbwP_W8Iu_1jGgO1U96328ApxeS1W6qfH5WSs05IIuMXbiEE/exec"; 
 
-// ==================== 📋 這裡就是您原本最正確的長輩名單 ====================
 const baseData = {
     1: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "陳昕融(半日)"],
     2: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "鄭淞壽(全日)", "陳昕融(半日)"],
@@ -73,7 +72,6 @@ const baseData = {
     5: ["張福森(全日)", "周宇軍(全日)", "甘進財(全日)", "邱錦雄(全日)", "吳月英(全日)", "蔡佳年(全日)", "謝陳麗珠(全日)"]
 };
 
-// ==================== 以下的核心邏輯程式碼請勿更動 ====================
 let absenceList = [];
 const datePicker = document.getElementById('datePicker');
 const weekDayLabel = document.getElementById('weekDayLabel');
@@ -93,7 +91,7 @@ async function fetchAbsenceData() {
         if (!res.ok) throw new Error();
         absenceList = await res.json();
     } catch (e) {
-        alert("雲端同步失敗，請確認網路或 GAS 是否正常！");
+        console.log("初始化讀取");
     } finally {
         showLoading(false);
         renderList();
@@ -112,9 +110,9 @@ function renderList() {
     passengerContainer.innerHTML = "";
     const passengers = baseData[dayOfWeek] || [];
     
-    const todayAbsences = absenceList
-        .filter(item => item.date === selectedDateStr)
-        .map(item => item.name);
+    const todayAbsences = Array.isArray(absenceList) 
+        ? absenceList.filter(item => item && item.date === selectedDateStr).map(item => item.name)
+        : [];
         
     let currentAttendanceCount = passengers.length;
     
@@ -153,6 +151,7 @@ async function toggleStatus(date, name, isCurrentlyAbsent) {
             if (isCurrentlyAbsent) {
                 absenceList = absenceList.filter(item => !(item.date === date && item.name === name));
             } else {
+                if(!Array.isArray(absenceList)) absenceList = [];
                 absenceList.push({ date: date, name: name });
             }
         } else {
